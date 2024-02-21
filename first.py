@@ -6,6 +6,7 @@ libc = ctypes.CDLL('libc.so.6', use_errno=True)
 CLONE_NEWNS = 	0x00020000
 CLONE_NEWUTS = 	0x04000000
 CLONE_NEWPID =	0x20000000
+CLONE_NEWCGROUP	=	0x02000000
 def unsharens(flag):
     result = libc.unshare(flag)
 
@@ -21,22 +22,42 @@ def set_hostname(name):
         print(err_no)
 
 
+def create_memory_group():
+    base_dir = '/sys/fs/cgroup/memory'
+    cd_dir = os.path.join(
+        base_dir, "front")
+
+    if not os.path.exists(cd_dir):
+        os.makedirs(cd_dir)
+    tasks_file = os.path.join(cd_dir, 'tasks')
+    open(tasks_file, 'w').write(str(os.getpid()))
+
+    mem_limit_in_bytes_file = os.path.join(
+        cd_dir, 'memory.limit_in_bytes')
+    open(mem_limit_in_bytes_file, 'w').write(str(512 * 1024 * 1024))
+
+
+def child_func(stack):
+    create_memory_group()
+    set_hostname("front")
+    os.system("mount -t proc none /vagrant/myroot/proc")
+    os.system("mount -t sysfs sysfs /vagrant/myroot/sys")
+    os.system("mount -t tmpfs none  /vagrant/myroot/tmp")
+    os.chroot("/vagrant/myroot")
+    os.chdir("/")
+    os.execvp('/bin/busybox', ['/bin/busybox', 'sh'])
+
 def run():
-    unsharens(CLONE_NEWPID)
-    pid = os.fork()
+    child_func_type = ctypes.CFUNCTYPE(None, ctypes.c_void_p)
+    child_func_c = child_func_type(child_func)
 
-    if pid==0:
-        unsharens(CLONE_NEWNS | CLONE_NEWUTS)
+    stack = ctypes.c_void_p(libc.sbrk(0))
 
-        set_hostname("front")
-        os.system("mount -t proc none /vagrant/myroot/proc ")
-        os.chroot("/vagrant/myroot")
-        os.chdir("/")
-        os.execvp('/bin/busybox',['/bin/busybox', 'sh'])
-    else:
-        rid, status = os.waitpid(pid, 0)
-        os.system("umount /vagrant/myroot/proc ")
-        print(rid, status)
+
+    pid = libc.clone(child_func_c, stack, CLONE_NEWNS | CLONE_NEWPID| CLONE_NEWUTS |CLONE_NEWCGROUP| 17 )
+    _, status = os.waitpid(pid, 0)
+
+
 
 
 if __name__ == '__main__':
