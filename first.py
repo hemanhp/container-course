@@ -7,6 +7,7 @@ CLONE_NEWNS = 	0x00020000
 CLONE_NEWUTS = 	0x04000000
 CLONE_NEWPID =	0x20000000
 CLONE_NEWCGROUP	=	0x02000000
+CLONE_NEWNET=	0x40000000
 def unsharens(flag):
     result = libc.unshare(flag)
 
@@ -54,7 +55,7 @@ def run():
     stack = ctypes.c_void_p(libc.sbrk(0))
 
 
-    pid = libc.clone(child_func_c, stack, CLONE_NEWNS | CLONE_NEWPID| CLONE_NEWUTS |CLONE_NEWCGROUP| 17 )
+    pid = libc.clone(child_func_c, stack, CLONE_NEWNS | CLONE_NEWPID| CLONE_NEWUTS |CLONE_NEWCGROUP|CLONE_NEWNET| 17 )
     _, status = os.waitpid(pid, 0)
 
 
