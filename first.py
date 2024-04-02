@@ -8,6 +8,14 @@ CLONE_NEWUTS = 	0x04000000
 CLONE_NEWPID =	0x20000000
 CLONE_NEWCGROUP	=	0x02000000
 CLONE_NEWNET=	0x40000000
+
+
+BASE_DIR="/home/vagrant/ubuntu"
+WORK_DIR="/home/vagrant/work"
+UPPER_DIR="/home/vagrant/upper"
+ROOT_FS = '/home/vagrant/uroot'
+
+
 def unsharens(flag):
     result = libc.unshare(flag)
 
@@ -39,16 +47,21 @@ def create_memory_group():
 
 
 def child_func(stack):
+
+    # os.system(f"cp -r /home/vagrant/ubuntu {ROOT_FS}")
+    os.system(f"mount -t overlay -o lowerdir={BASE_DIR},upperdir={UPPER_DIR},workdir={WORK_DIR} overlay {ROOT_FS}")
     create_memory_group()
     set_hostname("front")
-    os.system("mount -t proc none /vagrant/myroot/proc")
-    os.system("mount -t sysfs sysfs /vagrant/myroot/sys")
-    os.system("mount -t tmpfs none  /vagrant/myroot/tmp")
-    os.chroot("/vagrant/myroot")
+    os.system(f"mount -t proc none {ROOT_FS}/proc")
+    os.system(f"mount -t sysfs sysfs {ROOT_FS}/sys")
+    os.system(f"mount -t tmpfs none  {ROOT_FS}/tmp")
+    os.chroot(f"{ROOT_FS}")
     os.chdir("/")
-    os.execvp('/bin/busybox', ['/bin/busybox', 'sh'])
+    os.execvp('/bin/bash', ['/bin/bash'])
 
 def run():
+
+
     child_func_type = ctypes.CFUNCTYPE(None, ctypes.c_void_p)
     child_func_c = child_func_type(child_func)
 
